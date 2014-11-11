@@ -3725,11 +3725,11 @@ int main(int argc, char **argv)
 					//wjj
 					if (1==pFrame->my_mosaic.flag){
 						printf("mosaic!%d,Framenum:%d and %d \n,",pFrame->my_mosaic.mb_size,pCodecCtx->frame_number,pFrame->my_mosaic.coded_num);
-						SDL_Delay(4000);
+						//SDL_Delay(1000);
 					}
 					else{
 						printf("\tno masaic!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
-						//SDL_Delay(1000); 
+						SDL_Delay(1000); 
 					}
 
 				}  

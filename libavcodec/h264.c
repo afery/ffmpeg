@@ -49,6 +49,12 @@
 #include "vdpau_internal.h"
 
 #include <assert.h>
+//wjj new 
+#define MAXREFCOUNT 10
+typedef struct g_mosaic{
+int g_ref_list[2][MAXREFCOUNT];
+
+}global_mosaic;
 
 const uint16_t ff_h264_mb_sizes[4] = { 256, 384, 512, 768 };
 
@@ -5126,10 +5132,10 @@ not_extra:
 				h->cur_pic_ptr->f.my_mosaic.flag=1;
 				//if(h->cur_pic_ptr)				
 			}
-			/*if(h->cur_pic_ptr->f.my_mosaic.flag!=1){ 
-				if(h->cur_pic_ptr->f.pict_type==AV_PICTURE_TYPE_P||h->cur_pic_ptr->f.pict_type==AV_PICTURE_TYPE_B){
-					int km=h->ref_count[0]>5?5:h->ref_count[0];
-					int lm=h->ref_count[1]>5?5:h->ref_count[1];
+			if(h->cur_pic_ptr->f.my_mosaic.flag!=1){ 
+				if(h->cur_pic_ptr->f.pict_type==AV_PICTURE_TYPE_B){
+					int km=h->ref_count[0]>16?16:h->ref_count[0];
+					int lm=h->ref_count[1]>16?16:h->ref_count[1];
 					for(int k=0;k<km;k++){
 						if(h->ref_list[0][k].f.my_mosaic.flag==1){
 							h->cur_pic_ptr->f.my_mosaic.flag=1;
@@ -5146,12 +5152,23 @@ not_extra:
 							}
 						}
 					}
+					else if(h->cur_pic_ptr->f.pict_type==AV_PICTURE_TYPE_P){
+						int km=h->ref_count[0]>16?16:h->ref_count[0];
+						for(int k=0;k<km;k++){
+							if(h->ref_list[0][k].f.my_mosaic.flag==1){
+								h->cur_pic_ptr->f.my_mosaic.flag=1;
+								//h->cur_pic_ptr->f.my_mosaic.coded_num=h->coded_picture_number;
+								break;
+							}
+						}
+					}
 
 				}//if...P||B
-			}*/	
+			}	
 			if(h->cur_pic_ptr->f.my_mosaic.flag==1){
 				printf("num:%d\n",h->coded_picture_number);
 				h->cur_pic_ptr->f.my_mosaic.coded_num=h->coded_picture_number;
+				
 			}
 		//end wjj
         field_end(h, 0);
