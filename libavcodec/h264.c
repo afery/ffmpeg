@@ -531,8 +531,8 @@ int ff_h264_check_intra4x4_pred_mode(H264Context *h)
                        "top block unavailable for requested intra4x4 mode %d at %d %d\n",
                        status, h->mb_x, h->mb_y);
 							//wjj
-			h->next_output_pic->f.my_mosaic.flag=1;
-			h->next_output_pic->f.my_mosaic.mb_size++;
+	//		h->cur_pic_ptr->f.my_mosaic.flag=1;
+	//		h->cur_pic_ptr->f.my_mosaic.mb_size++;
                 return AVERROR_INVALIDDATA;
             } else if (status) {
                 h->intra4x4_pred_mode_cache[scan8[0] + i] = status;
@@ -549,9 +549,9 @@ int ff_h264_check_intra4x4_pred_mode(H264Context *h)
                     av_log(h->avctx, AV_LOG_ERROR,
                            "left block unavailable for requested intra4x4 mode %d at %d %d\n",
                            status, h->mb_x, h->mb_y);
-								//wjj
-				h->next_output_pic->f.my_mosaic.flag=1;
-			h->next_output_pic->f.my_mosaic.mb_size++;
+							//wjj
+	//		h->cur_pic_ptr->f.my_mosaic.flag=1;
+	//		h->cur_pic_ptr->f.my_mosaic.mb_size++;
                     return AVERROR_INVALIDDATA;
                 } else if (status) {
                     h->intra4x4_pred_mode_cache[scan8[0] + 8 * i] = status;
@@ -585,9 +585,9 @@ int ff_h264_check_intra_pred_mode(H264Context *h, int mode, int is_chroma)
             av_log(h->avctx, AV_LOG_ERROR,
                    "top block unavailable for requested intra mode at %d %d\n",
                    h->mb_x, h->mb_y);
-			//wjj
-				h->next_output_pic->f.my_mosaic.flag=1;
-			h->next_output_pic->f.my_mosaic.mb_size++;
+							//wjj
+	//		h->cur_pic_ptr->f.my_mosaic.flag=1;
+	//		h->cur_pic_ptr->f.my_mosaic.mb_size++;
             return AVERROR_INVALIDDATA;
         }
     }
@@ -604,9 +604,9 @@ int ff_h264_check_intra_pred_mode(H264Context *h, int mode, int is_chroma)
             av_log(h->avctx, AV_LOG_ERROR,
                    "left block unavailable for requested intra mode at %d %d\n",
                    h->mb_x, h->mb_y);
-			//wjj
-			h->next_output_pic->f.my_mosaic.flag=1;
-			h->next_output_pic->f.my_mosaic.mb_size++;
+							//wjj
+	//		h->cur_pic_ptr->f.my_mosaic.flag=1;
+	//		h->cur_pic_ptr->f.my_mosaic.mb_size++;
             return AVERROR_INVALIDDATA;
         }
     }
@@ -2974,6 +2974,7 @@ static int field_end(H264Context *h, int in_setup)
         !FIELD_PICTURE(h) && h->current_slice && !h->sps.new) {
         h->er.cur_pic  = h->cur_pic_ptr;
         ff_er_frame_end(&h->er);
+
     }
     if (!in_setup && !h->droppable)
         ff_thread_report_progress(&h->cur_pic_ptr->tf, INT_MAX,
@@ -4622,6 +4623,7 @@ static int execute_decode_slices(H264Context *h, int context_count)
         if (CONFIG_ERROR_RESILIENCE) {
             for (i = 1; i < context_count; i++)
                 h->er.error_count += h->thread_context[i]->er.error_count;
+			
         }
     }
 
@@ -5033,10 +5035,10 @@ static int decode_frame(AVCodecContext *avctx, void *data,
     int i, out_idx;
     int ret;
 //wjj
-	if(h->next_output_pic){
-	h->next_output_pic->f.my_mosaic.flag=0;
-	h->next_output_pic->f.my_mosaic.mb_size=0;
-	}
+//	if(h->cur_pic_ptr){
+//	h->cur_pic_ptr->f.my_mosaic.flag=-1;
+//	h->cur_pic_ptr->f.my_mosaic.mb_size=0;
+//	}
 //end
 
     h->flags = avctx->flags;
@@ -5097,7 +5099,8 @@ static int decode_frame(AVCodecContext *avctx, void *data,
     }
 not_extra:
 
-    buf_index = decode_nal_units(h, buf, buf_size, 0);
+    buf_index = decode_nal_units(h, buf, buf_size, 0);//**************
+	
     if (buf_index < 0)
         return AVERROR_INVALIDDATA;
 
@@ -5118,15 +5121,51 @@ not_extra:
         (h->mb_y >= h->mb_height && h->mb_height)) {
         if (avctx->flags2 & CODEC_FLAG2_CHUNKS)
             decode_postinit(h, 1);
+			//wjj new
+			if(h->er.error_occurred){
+				h->cur_pic_ptr->f.my_mosaic.flag=1;
+				//if(h->cur_pic_ptr)				
+			}
+			/*if(h->cur_pic_ptr->f.my_mosaic.flag!=1){ 
+				if(h->cur_pic_ptr->f.pict_type==AV_PICTURE_TYPE_P||h->cur_pic_ptr->f.pict_type==AV_PICTURE_TYPE_B){
+					int km=h->ref_count[0]>5?5:h->ref_count[0];
+					int lm=h->ref_count[1]>5?5:h->ref_count[1];
+					for(int k=0;k<km;k++){
+						if(h->ref_list[0][k].f.my_mosaic.flag==1){
+							h->cur_pic_ptr->f.my_mosaic.flag=1;
+							//h->cur_pic_ptr->f.my_mosaic.coded_num=h->coded_picture_number;
+							break;
+						}
+					}
+					if(h->cur_pic_ptr->f.my_mosaic.flag!=1){ 
+						for(int l=0;l<lm;l++){
+							if(h->ref_list[1][l].f.my_mosaic.flag==1){
+								h->cur_pic_ptr->f.my_mosaic.flag=1;
+								//h->cur_pic_ptr->f.my_mosaic.coded_num=h->coded_picture_number;
+								break;
+							}
+						}
+					}
 
+				}//if...P||B
+			}*/	
+			if(h->cur_pic_ptr->f.my_mosaic.flag==1){
+				printf("num:%d\n",h->coded_picture_number);
+				h->cur_pic_ptr->f.my_mosaic.coded_num=h->coded_picture_number;
+			}
+		//end wjj
         field_end(h, 0);
 
         /* Wait for second field. */
         *got_frame = 0;
         if (h->next_output_pic && (h->next_output_pic->sync || h->sync>1)) {
-            ret = output_frame(h, pict, h->next_output_pic);
-            if (ret < 0)
-                return ret;
+            ret = output_frame(h, pict, h->next_output_pic);	
+		
+			
+		
+
+		if (ret < 0)
+				return ret;
             *got_frame = 1;
             if (CONFIG_MPEGVIDEO) {
                 ff_print_debug_info2(h->avctx, h->next_output_pic, pict, h->er.mbskip_table,

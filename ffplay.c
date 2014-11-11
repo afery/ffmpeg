@@ -3602,7 +3602,7 @@ int main(int argc, char **argv)
 	int             i, videoindex;  
 	AVCodecContext  *pCodecCtx;  
 	AVCodec         *pCodec;  
-	char filepath[]="F:\\台标\\视频\\mosaic\\new\\cctv1-noise.ts";  
+	char filepath[]="F:\\台标\\视频\\mosaic\\cctv1-中文测试用.ts";  
 	av_register_all();  
 	avformat_network_init();  //打开网络流
 	pFormatCtx = avformat_alloc_context();  
@@ -3701,7 +3701,7 @@ int main(int argc, char **argv)
 				if(got_picture)  
 				{  
 					sws_scale(img_convert_ctx, (const uint8_t* const*)pFrame->data, pFrame->linesize, 0, pCodecCtx->height, pFrameYUV->data, pFrameYUV->linesize);
-				
+
 					int y_size=pCodecCtx->width*pCodecCtx->height;    
 					fwrite(pFrameYUV->data[0],1,y_size,fp_yuv);    //Y 
 					fwrite(pFrameYUV->data[1],1,y_size/4,fp_yuv);  //U  
@@ -3722,11 +3722,16 @@ int main(int argc, char **argv)
 					//测试自己填充数据----------------  
 					SDL_DisplayYUVOverlay(bmp, &rect);   
 					//延时40ms  
-			 //wjj
-					if (pFrame->my_mosaic.flag){
-					printf("mosaic!%d,Framenum:%d\n,",pFrame->my_mosaic.mb_size,pCodecCtx->frame_number);
-					SDL_Delay(1000);}
-					SDL_Delay(40); 
+					//wjj
+					if (1==pFrame->my_mosaic.flag){
+						printf("mosaic!%d,Framenum:%d and %d \n,",pFrame->my_mosaic.mb_size,pCodecCtx->frame_number,pFrame->my_mosaic.coded_num);
+						SDL_Delay(4000);
+					}
+					else{
+						printf("\tno masaic!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+						//SDL_Delay(1000); 
+					}
+
 				}  
 			}  
 			av_free_packet(packet);  
