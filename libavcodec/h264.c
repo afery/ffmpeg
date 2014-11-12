@@ -52,10 +52,15 @@
 //wjj new 
 #define MAXREFCOUNT 10
 typedef struct g_mosaic{
-int g_ref_list[2][MAXREFCOUNT];
-
+	int g_ref_flag[16][MAXREFCOUNT];
+	int g_cur_flag[16];
 }global_mosaic;
-
+/*static global_mosaic my_gmosaic=
+{
+	.g_ref_flag={0,0,0,0,0,0,};
+	.g_cur_flag={0};
+};*/
+static global_mosaic my_gmosaic;
 const uint16_t ff_h264_mb_sizes[4] = { 256, 384, 512, 768 };
 
 static const uint8_t rem6[QP_MAX_NUM + 1] = {
@@ -5123,78 +5128,91 @@ not_extra:
         return AVERROR_INVALIDDATA;
     }
 
-    if (!(avctx->flags2 & CODEC_FLAG2_CHUNKS) ||
-        (h->mb_y >= h->mb_height && h->mb_height)) {
-        if (avctx->flags2 & CODEC_FLAG2_CHUNKS)
-            decode_postinit(h, 1);
+	if (!(avctx->flags2 & CODEC_FLAG2_CHUNKS) ||
+		(h->mb_y >= h->mb_height && h->mb_height)) {
+			if (avctx->flags2 & CODEC_FLAG2_CHUNKS)
+				decode_postinit(h, 1);
 			//wjj new
+
+			AVFrame* myMosaicFrame=&(h->cur_pic_ptr->f);
+			int index=myMosaicFrame->coded_picture_number%16;
+			if (index==1){
+				memset(my_gmosaic.g_cur_flag,0,16*sizeof(int));
+				memset(my_gmosaic.g_ref_flag,0,16*MAXREFCOUNT*sizeof(int));
+			}
 			if(h->er.error_occurred){
-				h->cur_pic_ptr->f.my_mosaic.flag=1;
+				//myMosaicFrame->my_mosaic.flag=1;				
+				my_gmosaic.g_cur_flag[index]=1;
 				//if(h->cur_pic_ptr)				
+			}			
+			if(myMosaicFrame->pict_type==AV_PICTURE_TYPE_B){
+				int km=h->ref_count[0]>MAXREFCOUNT?MAXREFCOUNT:h->ref_count[0];
+				int lm=h->ref_count[1]>MAXREFCOUNT?MAXREFCOUNT:h->ref_count[1];
+				for(int k=0;k<km;k++){
+					
+						int ref_index=h->ref_list[0][k].f.coded_picture_number%16;
+						if(1==my_gmosaic.g_cur_flag[ref_index])
+						my_gmosaic.g_cur_flag[index]=1;	
+						break;
+					
+				}
+				if(my_gmosaic.g_cur_flag[index]!=1){
+					for(int l=0;l<lm;l++){
+
+						int ref_index=h->ref_list[1][l].f.coded_picture_number%16;
+						if(1==my_gmosaic.g_cur_flag[ref_index])
+							my_gmosaic.g_cur_flag[index]=1;	
+
+					}
+				}
 			}
-			if(h->cur_pic_ptr->f.my_mosaic.flag!=1){ 
-				if(h->cur_pic_ptr->f.pict_type==AV_PICTURE_TYPE_B){
-					int km=h->ref_count[0]>16?16:h->ref_count[0];
-					int lm=h->ref_count[1]>16?16:h->ref_count[1];
-					for(int k=0;k<km;k++){
-						if(h->ref_list[0][k].f.my_mosaic.flag==1){
-							h->cur_pic_ptr->f.my_mosaic.flag=1;
-							//h->cur_pic_ptr->f.my_mosaic.coded_num=h->coded_picture_number;
-							break;
-						}
-					}
-					if(h->cur_pic_ptr->f.my_mosaic.flag!=1){ 
-						for(int l=0;l<lm;l++){
-							if(h->ref_list[1][l].f.my_mosaic.flag==1){
-								h->cur_pic_ptr->f.my_mosaic.flag=1;
-								//h->cur_pic_ptr->f.my_mosaic.coded_num=h->coded_picture_number;
-								break;
-							}
-						}
-					}
-					else if(h->cur_pic_ptr->f.pict_type==AV_PICTURE_TYPE_P){
-						int km=h->ref_count[0]>16?16:h->ref_count[0];
-						for(int k=0;k<km;k++){
-							if(h->ref_list[0][k].f.my_mosaic.flag==1){
-								h->cur_pic_ptr->f.my_mosaic.flag=1;
-								//h->cur_pic_ptr->f.my_mosaic.coded_num=h->coded_picture_number;
-								break;
-							}
-						}
-					}
 
-				}//if...P||B
-			}	
-			if(h->cur_pic_ptr->f.my_mosaic.flag==1){
-				printf("num:%d\n",h->coded_picture_number);
-				h->cur_pic_ptr->f.my_mosaic.coded_num=h->coded_picture_number;
-				
+			else if(myMosaicFrame->pict_type==AV_PICTURE_TYPE_P){
+				int km=h->ref_count[0]>MAXREFCOUNT?MAXREFCOUNT:h->ref_count[0];
+				for(int k=0;k<km;k++){
+					
+						int ref_index=h->ref_list[0][k].f.coded_picture_number%16;
+						if(1==my_gmosaic.g_cur_flag[ref_index])
+						my_gmosaic.g_cur_flag[index]=1;							
+					
+				}
 			}
-		//end wjj
-        field_end(h, 0);
 
-        /* Wait for second field. */
-        *got_frame = 0;
-        if (h->next_output_pic && (h->next_output_pic->sync || h->sync>1)) {
-            ret = output_frame(h, pict, h->next_output_pic);	
-		
-			
-		
+		    /*if(h->cur_pic_ptr->f.my_mosaic.flag==1){
+			printf("num:%d\n",h->coded_picture_number);
+			h->cur_pic_ptr->f.my_mosaic.coded_num=h->coded_picture_number;
 
-		if (ret < 0)
-				return ret;
-            *got_frame = 1;
-            if (CONFIG_MPEGVIDEO) {
-                ff_print_debug_info2(h->avctx, h->next_output_pic, pict, h->er.mbskip_table,
-                                    &h->low_delay,
-                                    h->mb_width, h->mb_height, h->mb_stride, 1);
-            }
-        }
-    }
+			}*/
 
-    assert(pict->data[0] || !*got_frame);
+			//end wjj
+			field_end(h, 0);
 
-    return get_consumed_bytes(buf_index, buf_size);
+
+
+			/* Wait for second field. */
+			*got_frame = 0;
+			if (h->next_output_pic && (h->next_output_pic->sync || h->sync>1)) {
+				//wjj
+				int out_index=h->next_output_pic->f.coded_picture_number%16;
+				if(my_gmosaic.g_cur_flag[out_index]){
+					h->next_output_pic->f.my_mosaic.flag=1;
+				}
+				//end wjj
+				ret = output_frame(h, pict, h->next_output_pic);
+				if (ret < 0)
+					return ret;
+				*got_frame = 1;
+				if (CONFIG_MPEGVIDEO) {
+					ff_print_debug_info2(h->avctx, h->next_output_pic, pict, h->er.mbskip_table,
+						&h->low_delay,
+						h->mb_width, h->mb_height, h->mb_stride, 1);
+				}
+			}
+	}
+
+	assert(pict->data[0] || !*got_frame);
+
+	return get_consumed_bytes(buf_index, buf_size);
 }
 
 av_cold void ff_h264_free_context(H264Context *h)
