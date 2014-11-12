@@ -52,7 +52,7 @@
 //wjj new 
 #define MAXREFCOUNT 10
 typedef struct g_mosaic{
-	int g_ref_flag[16][MAXREFCOUNT];
+	int g_ref_cpn[16][MAXREFCOUNT];
 	int g_cur_flag[16];
 }global_mosaic;
 /*static global_mosaic my_gmosaic=
@@ -61,6 +61,20 @@ typedef struct g_mosaic{
 	.g_cur_flag={0};
 };*/
 static global_mosaic my_gmosaic;
+
+
+typedef struct tag_Mao_MisicaArray
+{
+#define MAX_GOP_LENGTH 16
+	int MA_Flag[MAX_GOP_LENGTH];
+	int Index[MAX_GOP_LENGTH];
+	int Pic_Type[MAX_GOP_LENGTH];
+	int Ref_Index[MAX_GOP_LENGTH][MAX_GOP_LENGTH];
+
+}MosicaArray;
+
+static MosicaArray myMosicaArrayTest;
+
 const uint16_t ff_h264_mb_sizes[4] = { 256, 384, 512, 768 };
 
 static const uint8_t rem6[QP_MAX_NUM + 1] = {
@@ -615,7 +629,7 @@ int ff_h264_check_intra_pred_mode(H264Context *h, int mode, int is_chroma)
             av_log(h->avctx, AV_LOG_ERROR,
                    "left block unavailable for requested intra mode at %d %d\n",
                    h->mb_x, h->mb_y);
-							//wjj
+	//wjj
 	//		h->cur_pic_ptr->f.my_mosaic.flag=1;
 	//		h->cur_pic_ptr->f.my_mosaic.mb_size++;
             return AVERROR_INVALIDDATA;
@@ -5132,7 +5146,7 @@ not_extra:
 		(h->mb_y >= h->mb_height && h->mb_height)) {
 			if (avctx->flags2 & CODEC_FLAG2_CHUNKS)
 				decode_postinit(h, 1);
-			//wjj new
+		/*	//wjj new
 
 			AVFrame* myMosaicFrame=&(h->cur_pic_ptr->f);
 			int index=myMosaicFrame->coded_picture_number%16;
@@ -5184,20 +5198,145 @@ not_extra:
 
 			}*/
 
-			//end wjj
+			//end wjj*/
 			field_end(h, 0);
+
+
+
+			//--------------------------------------------------------------------
+			/*AVFrame* curMosaicFrame=&(h->cur_pic_ptr->f);
+			int cur_index=curMosaicFrame->coded_picture_number%16;
+			if(h->er.error_occurred){
+				curMosaicFrame->my_mosaic.flag=1;				
+				my_gmosaic.g_cur_flag[cur_index]=1;
+				//if(h->cur_pic_ptr)				
+			}	
+			int ncount=h->list_count;
+			for(int i=0;i<MAXREFCOUNT;i++){
+				my_gmosaic.g_ref_cpn[cur_index][i]=0;
+			}
+			if(curMosaicFrame->pict_type==AV_PICTURE_TYPE_B&&ncount){
+				int km=h->ref_count[0];//>MAXREFCOUNT?MAXREFCOUNT:h->ref_count[0];
+				int lm=h->ref_count[1];//>MAXREFCOUNT?MAXREFCOUNT:h->ref_count[1];
+				for(int k=0;k<km;k++){					
+					my_gmosaic.g_ref_cpn[cur_index][k]=h->ref_list[0][k].f.coded_picture_number;//codedPictureNumber
+					if(h->ref_list[0][k].f.my_mosaic.flag)
+						my_gmosaic.g_cur_flag[cur_index]++;	
+				}
+				
+				for(int l=0;l<lm;l++){
+					my_gmosaic.g_ref_cpn[cur_index][km+l]=h->ref_list[1][l].f.coded_picture_number;//codedPictureNumber
+					if(h->ref_list[1][l].f.my_mosaic.flag)
+						my_gmosaic.g_cur_flag[cur_index]++;	
+				}
+				
+			}
+
+			else if(curMosaicFrame->pict_type==AV_PICTURE_TYPE_P&&ncount){
+				int km=h->ref_count[0];//>MAXREFCOUNT?MAXREFCOUNT:h->ref_count[0];
+				for(int k=0;k<km;k++){					
+					my_gmosaic.g_ref_cpn[cur_index][k]=h->ref_list[0][k].f.coded_picture_number;//codedPictureNumber
+					if(h->ref_list[0][k].f.my_mosaic.flag)
+						my_gmosaic.g_cur_flag[cur_index]++;							
+				}
+			}*/
+
+		//	if (h->er.error_occurred)
+		//	{
+		//		h->cur_pic_ptr->f.my_mosaic.flag=1;
+		//	}
+
+			int nIndex=h->cur_pic_ptr->f.coded_picture_number%MAX_GOP_LENGTH;
+			//myMosicaArrayTest.Index[nIndex]=h->cur_pic_ptr->f.coded_picture_number;
+			myMosicaArrayTest.MA_Flag[nIndex]=h->cur_pic_ptr->f.my_mosaic.flag;
+			myMosicaArrayTest.Pic_Type[nIndex]=h->cur_pic_ptr->f.pict_type;
+			int npic1=0;
+			while ((myMosicaArrayTest.Ref_Index[nIndex][npic1])>0)
+			{
+				myMosicaArrayTest.Ref_Index[nIndex][npic1]=0;
+				npic1++;
+			}
+
+			int ncount=h->list_count;
+			switch (ncount)
+			{
+			case 0:
+				break;
+			case 2:
+				npic1=0;
+				while (npic1<h->ref_count[1])
+				{
+					myMosicaArrayTest.Ref_Index[nIndex][npic1+h->ref_count[0]]=h->ref_list[1][npic1].f.coded_picture_number;
+					if (h->ref_list[1][npic1].f.my_mosaic.flag)
+					{
+						myMosicaArrayTest.MA_Flag[nIndex]++;
+
+					}
+
+					npic1++;
+				}
+			case 1:
+				npic1=0;
+				while (npic1<h->ref_count[0])
+				{
+					myMosicaArrayTest.Ref_Index[nIndex][npic1]=h->ref_list[0][npic1].f.coded_picture_number;
+					if (h->ref_list[0][npic1].f.my_mosaic.flag)
+					{
+						myMosicaArrayTest.MA_Flag[nIndex]++;
+
+					}
+					npic1++;
+				}
+				break;
+			}
 
 
 
 			/* Wait for second field. */
 			*got_frame = 0;
 			if (h->next_output_pic && (h->next_output_pic->sync || h->sync>1)) {
-				//wjj
+/*				//wjj
 				int out_index=h->next_output_pic->f.coded_picture_number%16;
 				if(my_gmosaic.g_cur_flag[out_index]){
 					h->next_output_pic->f.my_mosaic.flag=1;
 				}
-				//end wjj
+				//end wjj*/
+
+				//-----------------------------------------
+				/*int i=0;
+				int out_index=h->next_output_pic->f.coded_picture_number%16;
+				while(my_gmosaic.g_ref_cpn[out_index][i]>0){
+					int cpn=my_gmosaic.g_ref_cpn[out_index][i++];
+					int out=cpn%16;
+					if(my_gmosaic.g_cur_flag[out]){
+						my_gmosaic.g_cur_flag[out_index]=1;
+						h->next_output_pic->f.my_mosaic.flag=1;
+						pict->my_mosaic.flag=1;
+						break;
+					}
+				}*/
+
+			nIndex=h->next_output_pic->f.coded_picture_number%MAX_GOP_LENGTH;
+
+			if (h->next_output_pic->f.my_mosaic.flag==0)
+			{
+				int npic=0;
+				int nref_Index=0;
+				while (myMosicaArrayTest.Ref_Index[nIndex][npic]>0)
+				{
+					nref_Index=myMosicaArrayTest.Ref_Index[nIndex][npic];
+					if (myMosicaArrayTest.MA_Flag[nref_Index%MAX_GOP_LENGTH])
+					{
+						myMosicaArrayTest.MA_Flag[nIndex]=1;
+						h->next_output_pic->f.my_mosaic.flag=1;
+						pict->my_mosaic.flag=1;
+						break;
+
+					}
+					else
+						npic++;
+				}
+			}
 				ret = output_frame(h, pict, h->next_output_pic);
 				if (ret < 0)
 					return ret;
@@ -5211,7 +5350,6 @@ not_extra:
 	}
 
 	assert(pict->data[0] || !*got_frame);
-
 	return get_consumed_bytes(buf_index, buf_size);
 }
 
